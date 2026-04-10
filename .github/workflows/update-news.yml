@@ -1,0 +1,40 @@
+name: Сбор новостей о пожарах в Бурятии
+
+on:
+  schedule:
+    # Запуск каждый час (в 5 минут после часа)
+    - cron: '5 * * * *'
+  # Можно запустить и вручную (кнопкой)
+  workflow_dispatch:
+
+jobs:
+  parse-news:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Клонируем репозиторий
+        uses: actions/checkout@v4
+      
+      - name: Устанавливаем Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Устанавливаем зависимости
+        run: |
+          pip install telethon python-dotenv
+      
+      - name: Запускаем парсер Telegram
+        env:
+          API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          PHONE_NUMBER: ${{ secrets.TELEGRAM_PHONE }}
+        run: python parser.py
+      
+      - name: Сохраняем изменения в репозитории
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add fires_data.json index.html
+          git diff --staged --quiet || git commit -m "🔄 Автообновление: новые данные о пожарах $(date '+%Y-%m-%d %H:%M')"
+          git push
