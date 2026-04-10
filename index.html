@@ -299,23 +299,47 @@
     // --------------------------------------------------------------
 
     // ----- БАЗА ДАННЫХ (имитация реальных новостей + координаты) -----
-    const FIRES_DB = [
-        { id:1, title:"Пожароопасный сезон начался в Бурятии", description:"В 63 округах особый режим. Первые очаги в Закаменском районе.", link:"https://www.interfax-russia.ru/", source:"Интерфакс", date:"2026-04-09", category:"лес", lat:50.85, lng:103.85, rawDate:"2026-04-09T12:56:00", active:true },
-        { id:2, title:"27 лесных пожаров на 1,5 тыс. га", description:"Горят леса в 10 муниципалитетах. Верховые пожары.", link:"https://www.vesti.ru/", source:"Вести.Ru", date:"2026-04-04", category:"лес", lat:53.2, lng:109.5, rawDate:"2026-04-04T10:30:00", active:true },
-        { id:3, title:"За сутки потушено 23 лесных пожара", description:"Работает авиация. Причина - сухая погода.", link:"https://www.vesti.ru/", source:"МЧС", date:"2026-04-04", category:"чс", lat:52.5, lng:110.0, rawDate:"2026-04-04T14:20:00", active:false },
-        { id:4, title:"20 пожаров за сутки: горение травы и мусора", description:"Один пострадавший в Улан-Удэ.", link:"https://ulan.mk.ru/", source:"МК Бурятия", date:"2026-04-07", category:"происшествие", lat:51.83, lng:107.6, rawDate:"2026-04-07T09:15:00", active:false },
-        { id:5, title:"Два лесных пожара в Баунтовском и Кижингинском районах", description:"Площадь 26,2 га, локализованы.", link:"https://egov-buryatia.ru/ralh/", source:"РАЛХ", date:"2026-04-08", category:"лес", lat:53.45, lng:112.1, rawDate:"2026-04-08T11:00:00", active:true },
-        { id:6, title:"Сгорели гараж и зимовье в Прибайкальском районе", description:"Аварийный режим электрооборудования.", link:"https://tvatv.ru/", source:"АТВ", date:"2026-04-06", category:"происшествие", lat:52.0, lng:107.7, rawDate:"2026-04-06T08:45:00", active:false },
-        { id:7, title:"Особый противопожарный режим", description:"Запрет на въезд в леса, вознаграждение за поджигателей.", link:"https://egov-buryatia.ru/", source:"ГО и ЧС", date:"2026-04-01", category:"чс", lat:0, lng:0, rawDate:"2026-04-01T00:00:00", active:false },
-        { id:8, title:"Житель устроил пожар, высыпав шлак", description:"Заиграевский район, сгорели постройки.", link:"https://gazeta-n1.ru/", source:"Новая Бурятия", date:"2026-04-09", category:"происшествие", lat:51.95, lng:108.3, rawDate:"2026-04-09T09:36:00", active:false },
-        { id:9, title:"Мужчина пострадал при тушении в ДНТ «Труд»", description:"Ожог кисти, потушили 140 кв.м.", link:"https://ulan.mk.ru/", source:"МК", date:"2026-04-07", category:"происшествие", lat:51.83, lng:107.6, rawDate:"2026-04-07T20:30:00", active:false },
-        { id:10, title:"Telegram МЧС: 6 пожаров ликвидировано", description:"Короткое замыкание - основная причина.", link:"https://t.me/mchsburyatia", source:"МЧС Telegram", date:"2026-04-08", category:"чс", lat:51.83, lng:107.6, rawDate:"2026-04-08T18:00:00", active:false },
-        { id:11, title:"Лесопожарная обстановка стабильная", description:"Новых возгораний нет, авиапатрулирование.", link:"https://egov-buryatia.ru/ralh/", source:"РАЛХ", date:"2026-04-02", category:"лес", lat:0, lng:0, rawDate:"2026-04-02T11:20:00", active:false },
-        { id:12, title:"С начала года огнём пройдено 52 га", description:"7 случаев загорания травы.", link:"https://tvatv.ru/", source:"РА ГО и ЧС", date:"2026-03-31", category:"лес", lat:0, lng:0, rawDate:"2026-03-31T10:00:00", active:false },
-        { id:13, title:"Канал ГО и ЧС: ежедневные сводки", description:"Актуальные данные о пожарах.", link:"https://t.me/gochs03", source:"РА ГО и ЧС", date:"2026-04-09", category:"чс", lat:0, lng:0, rawDate:"2026-04-09T07:15:00", active:false },
-        { id:14, title:"В Иволгинском районе сгорели два дома", description:"Нарушение правил печей.", link:"https://ulanude.bezformata.com/", source:"БезФормата", date:"2026-04-09", category:"происшествие", lat:51.74, lng:107.27, rawDate:"2026-04-09T09:00:00", active:false },
-        { id:15, title:"Вертолёт Ми-8 для мониторинга пожаров", description:"Авиация МЧС усилена.", link:"https://www.aviaport.ru/", source:"АвиаПорт", date:"2026-04-05", category:"чс", lat:0, lng:0, rawDate:"2026-04-05T12:00:00", active:false }
-    ];
+// Загрузка данных из JSON-файла (который обновляет парсер)
+let allNews = [];
+
+async function loadNewsData() {
+    try {
+        const response = await fetch('fires_data.json');
+        if (response.ok) {
+            const data = await response.json();
+            allNews = data;
+            console.log(`✅ Загружено ${allNews.length} новостей`);
+        } else {
+            console.log('⚠️ Файл с данными не найден, использую демо-данные');
+            allNews = DEMO_NEWS;
+        }
+    } catch (error) {
+        console.log('❌ Ошибка загрузки, использую демо-данные:', error);
+        allNews = DEMO_NEWS;
+    }
+    renderNews();
+    updateStats();
+    updateMapMarkers();
+}
+
+// Демо-данные (на случай, если JSON не загрузился)
+const DEMO_NEWS = [
+    // Оставьте здесь 2-3 примера новостей как резерв
+    {
+        id: 1,
+        title: "Демо: Пожароопасный сезон в Бурятии",
+        description: "Это демонстрационное сообщение. Когда парсер начнёт работать, здесь появятся реальные новости из Telegram.",
+        link: "#",
+        source: "Демо",
+        date: "2024-01-01",
+        category: "чс",
+        rawDate: "2024-01-01T00:00:00",
+        active: false
+    }
+];
+
+// Загружаем данные при запуске
+loadNewsData();
 
     // Сортировка по дате
     let allNews = [...FIRES_DB].sort((a,b)=>new Date(b.rawDate)-new Date(a.rawDate));
