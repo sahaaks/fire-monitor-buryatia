@@ -1,0 +1,38 @@
+name: Спутниковый мониторинг пожаров
+
+on:
+  schedule:
+    # Запуск каждый час (в 15 минут после часа)
+    - cron: '15 * * * *'
+  # Можно запустить вручную
+  workflow_dispatch:
+
+jobs:
+  fetch-fires:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Клонируем репозиторий
+        uses: actions/checkout@v4
+      
+      - name: Устанавливаем Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Устанавливаем библиотеки
+        run: |
+          pip install requests pandas
+      
+      - name: Запускаем парсер NASA
+        env:
+          NASA_KEY: ${{ secrets.NASA_API_KEY }}
+        run: python nasa_fire_parser.py
+      
+      - name: Сохраняем изменения
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add fires_data.json
+          git diff --staged --quiet || git commit -m "🛰️ Автообновление спутниковых данных $(date '+%Y-%m-%d %H:%M')"
+          git push
