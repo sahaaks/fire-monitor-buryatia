@@ -6,15 +6,14 @@
     <title>Пожарный монитор | Бурятия | Спутниковые данные NASA</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        /* Ваши стили остаются без изменений */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: system-ui, sans-serif; background: #fef9e8; padding: 20px; }
         .container { max-width: 1400px; margin: 0 auto; }
         .header { text-align: center; margin-bottom: 25px; }
         h1 { color: #bc3900; }
         #fireMap { height: 500px; border-radius: 20px; margin-bottom: 20px; }
-        .stats { display: flex; gap: 20px; justify-content: center; margin-bottom: 20px; }
-        .stat-card { background: white; padding: 15px 25px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .stats { display: flex; gap: 20px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat-card { background: white; padding: 15px 25px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center; }
         .stat-number { font-size: 2rem; font-weight: bold; color: #bc3900; }
         .update-time { text-align: center; color: #666; margin-bottom: 20px; font-size: 0.85rem; }
         .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
@@ -24,6 +23,7 @@
         .news-description { font-size: 0.85rem; color: #555; margin-bottom: 10px; }
         .card-footer { font-size: 0.7rem; color: #999; display: flex; justify-content: space-between; }
         .loader { text-align: center; padding: 50px; }
+        .no-fires { text-align: center; padding: 50px; background: #e8f5e9; border-radius: 20px; color: #2e7d32; }
         .error { color: red; text-align: center; padding: 50px; }
         @media (max-width: 700px) { .cards-grid { grid-template-columns: 1fr; } }
     </style>
@@ -45,7 +45,7 @@
     <div class="update-time" id="updateTime">Загрузка данных...</div>
     
     <div id="newsContainer" class="cards-grid">
-        <div class="loader">🛰️ Загрузка спутниковых данных о пожарах...</div>
+        <div class="loader">🛰️ Загрузка спутниковых данных...</div>
     </div>
 </div>
 
@@ -56,7 +56,7 @@
     
     async function loadData() {
         try {
-            const response = await fetch('fires_data.json');
+            const response = await fetch('fires_data.json?t=' + Date.now());
             if (!response.ok) throw new Error('Файл не найден');
             const data = await response.json();
             
@@ -70,10 +70,10 @@
             
             if (metadata.last_update) {
                 const date = new Date(metadata.last_update);
-                document.getElementById('updateTime').innerHTML = `🛰️ Последнее обновление: ${date.toLocaleString('ru-RU')}<br>Источник: NASA FIRMS (спутники Terra/Aqua/NOAA)`;
+                document.getElementById('updateTime').innerHTML = `🛰️ Последнее обновление: ${date.toLocaleString('ru-RU')}<br>Источник: NASA FIRMS | Статус: ${fires.length === 0 ? '🌿 Активных пожаров нет' : '🔥 Обнаружены термоточки'}`;
             }
             
-            // Отображаем новости
+            // Отображаем новости или сообщение об отсутствии
             displayNews(fires);
             
             // Отображаем на карте
@@ -81,8 +81,8 @@
             
         } catch (error) {
             console.error('Ошибка загрузки:', error);
-            document.getElementById('newsContainer').innerHTML = '<div class="error">⚠️ Не удалось загрузить данные. Парсер ещё не запустился или данные отсутствуют.</div>';
-            document.getElementById('updateTime').innerHTML = 'Данные временно недоступны. Ожидайте первого обновления через ~1 час.';
+            document.getElementById('newsContainer').innerHTML = '<div class="error">⚠️ Не удалось загрузить данные. Проверьте соединение.</div>';
+            document.getElementById('updateTime').innerHTML = 'Данные временно недоступны. Парсер запускается каждый час.';
         }
     }
     
@@ -90,26 +90,39 @@
         const container = document.getElementById('newsContainer');
         
         if (!fires || fires.length === 0) {
-            container.innerHTML = '<div class="error">🌿 Активных пожаров в Бурятии не обнаружено. Данные обновляются каждый час.</div>';
+            container.innerHTML = `
+                <div class="no-fires">
+                    🌿 <strong>Активных пожаров в Бурятии не обнаружено</strong><br>
+                    По данным спутников NASA FIRMS за последние 24 часа термоточек не зафиксировано.<br>
+                    Данные обновляются каждый час.
+                </div>
+            `;
             return;
         }
         
         const html = fires.map(fire => {
             let intensity = '🔥 Слабый';
-            if (fire.frp > 100) intensity = '⚠️ КРИТИЧЕСКИЙ';
-            else if (fire.frp > 30) intensity = '🔥 СИЛЬНЫЙ';
+            let color = '#ffaa00';
+            if (fire.frp > 100) {
+                intensity = '⚠️ КРИТИЧЕСКИЙ';
+                color = '#ff0000';
+            } else if (fire.frp > 30) {
+                intensity = '🔥 СИЛЬНЫЙ';
+                color = '#ff6600';
+            }
             
             return `
                 <div class="news-card">
-                    <div class="source-badge">🛰️ Спутник NASA</div>
-                    <div class="news-title">${intensity} пожар</div>
+                    <div class="source-badge">🛰️ Спутник NASA (${intensity})</div>
+                    <div class="news-title">Пожар в районе ${fire.latitude?.toFixed(2)}, ${fire.longitude?.toFixed(2)}</div>
                     <div class="news-description">
-                        ${fire.description || `Интенсивность: ${fire.frp?.toFixed(1)} МВт<br>
-                        Координаты: ${fire.latitude?.toFixed(3)}, ${fire.longitude?.toFixed(3)}`}
+                        Интенсивность: ${fire.frp?.toFixed(1)} МВт<br>
+                        Координаты: ${fire.latitude?.toFixed(4)}, ${fire.longitude?.toFixed(4)}<br>
+                        Датчик: VIIRS
                     </div>
                     <div class="card-footer">
                         <span>📅 ${fire.date || 'сегодня'}</span>
-                        <a href="${fire.link || '#'}" target="_blank">Подробнее →</a>
+                        <a href="${fire.link || '#'}" target="_blank">Карта NASA →</a>
                     </div>
                 </div>
             `;
@@ -129,36 +142,52 @@
         
         markersLayer.clearLayers();
         
+        if (!fires || fires.length === 0) {
+            // Показываем сообщение на карте
+            const noFiresMessage = L.popup()
+                .setLatLng([53.0, 110.0])
+                .setContent('🌿 Активных пожаров в Бурятии не обнаружено')
+                .openOn(map);
+            return;
+        }
+        
         fires.forEach(fire => {
             if (fire.latitude && fire.longitude) {
                 let color = '#e07a5f';
-                if (fire.frp > 100) color = '#ff0000';
-                else if (fire.frp > 30) color = '#ff6600';
-                else color = '#ffaa00';
+                let radius = 8;
+                if (fire.frp > 100) {
+                    color = '#ff0000';
+                    radius = 14;
+                } else if (fire.frp > 30) {
+                    color = '#ff6600';
+                    radius = 10;
+                } else {
+                    color = '#ffaa00';
+                    radius = 6;
+                }
                 
                 const marker = L.circleMarker([fire.latitude, fire.longitude], {
-                    radius: fire.frp > 100 ? 12 : (fire.frp > 30 ? 8 : 5),
+                    radius: radius,
                     fillColor: color,
                     color: '#ffffff',
                     weight: 1,
                     opacity: 1,
-                    fillOpacity: 0.7
+                    fillOpacity: 0.8
                 }).addTo(markersLayer);
                 
                 marker.bindPopup(`
                     <b>${fire.frp > 100 ? 'КРИТИЧЕСКИЙ ПОЖАР' : (fire.frp > 30 ? 'Сильный пожар' : 'Термоточка')}</b><br>
                     Интенсивность: ${fire.frp?.toFixed(1)} МВт<br>
+                    Координаты: ${fire.latitude?.toFixed(4)}, ${fire.longitude?.toFixed(4)}<br>
                     Дата: ${fire.date}<br>
-                    <a href="${fire.link}" target="_blank">Открыть на карте NASA</a>
+                    <a href="${fire.link}" target="_blank">Открыть на карте NASA →</a>
                 `);
             }
         });
     }
     
-    // Загружаем данные при старте
+    // Загружаем данные при старте и каждые 10 минут
     loadData();
-    
-    // Обновляем каждые 10 минут
     setInterval(loadData, 10 * 60 * 1000);
 </script>
 </body>
