@@ -1,6 +1,5 @@
 import requests
 import json
-import os
 from datetime import datetime
 
 NASA_API_KEY = "c2b0a23afc43bb3fdab09c4eb2af2ca9"
@@ -15,24 +14,25 @@ def fetch_nasa_fires():
     response = requests.get(url, timeout=30)
     
     if response.status_code == 200:
-        # Разбираем CSV вручную (без pandas, чтобы не было проблем)
         lines = response.text.strip().split('\n')
         if len(lines) <= 1:
             print("🌿 Пожаров не обнаружено")
             return []
         
-        # Парсим строки (пропускаем заголовок)
         fires = []
         for line in lines[1:]:
             parts = line.split(',')
             if len(parts) >= 14:
-                fires.append({
-                    'latitude': float(parts[0]),
-                    'longitude': float(parts[1]),
-                    'acq_date': parts[6],
-                    'acq_time': parts[7],
-                    'frp': float(parts[13])
-                })
+                try:
+                    fires.append({
+                        'latitude': float(parts[0]),
+                        'longitude': float(parts[1]),
+                        'acq_date': parts[6],
+                        'acq_time': parts[7],
+                        'frp': float(parts[13])
+                    })
+                except:
+                    pass
         print(f"✅ Найдено {len(fires)} термоточек")
         return fires
     else:
@@ -40,25 +40,27 @@ def fetch_nasa_fires():
         return []
 
 def save_to_json(fires):
-    # Форматируем для сайта
     formatted = []
     for i, fire in enumerate(fires[:50]):
         frp = fire.get('frp', 0)
         if frp > 100:
             intensity = "КРИТИЧЕСКИЙ"
+            category = "лес"
         elif frp > 30:
             intensity = "СИЛЬНЫЙ"
+            category = "лес"
         else:
             intensity = "СЛАБЫЙ"
+            category = "происшествие"
         
         formatted.append({
             "id": i,
-            "title": f"{intensity} пожар в районе {fire['latitude']:.2f}, {fire['longitude']:.2f}",
+            "title": f"{intensity} пожар",
             "description": f"Интенсивность: {frp:.1f} МВт. Координаты: {fire['latitude']:.4f}, {fire['longitude']:.4f}",
             "link": f"https://firms.modaps.eosdis.nasa.gov/map/#d={fire['acq_date']};l=fire;x={fire['longitude']};y={fire['latitude']}",
             "source": "NASA FIRMS",
             "date": fire['acq_date'],
-            "category": "лес" if frp > 30 else "происшествие",
+            "category": category,
             "rawDate": f"{fire['acq_date']}T{str(fire['acq_time']).zfill(4)}:00",
             "active": True,
             "latitude": fire['latitude'],
@@ -79,20 +81,14 @@ def save_to_json(fires):
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
     
-    print(f"💾 Сохранено {len(formatted)} пожаров в {OUTPUT_FILE}")
-    return output
+    print(f"💾 Сохранено {len(formatted)} пожаров")
 
 def main():
     print("="*50)
-    print("🛰️  МОНИТОРИНГ ПОЖАРОВ | БУРЯТИЯ")
+    print("🛰️ МОНИТОРИНГ ПОЖАРОВ | БУРЯТИЯ")
     print("="*50)
-    
     fires = fetch_nasa_fires()
     save_to_json(fires)
-    
-    if len(fires) == 0:
-        print("\n🌿 Активных пожаров в Бурятии не обнаружено.")
-        print("Сайт показывает корректное сообщение об отсутствии данных.")
 
 if __name__ == "__main__":
     main()
